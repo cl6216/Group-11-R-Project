@@ -1,0 +1,379 @@
+---
+output: html_document
+---
+
+
+#Imperial College London - Maths and Statistics: R Project
+
+##Factors that Affect Distribution of French Movies Across Different Genres: Outlook from 1996 to 2010.
+
+####GitHub Repository: https://github.com/AndreasGeorgopoulos/Project_R_Final
+
+
+###1. Introduction
+
+This research aims to investigate the factors responsible for the distribution of movies produced by the French film industry across different genres between 1996 and 2010. In order to do this, we develop a simple model of utility-maximising directors, who derive their utility from producing movies that maximise their revenues and amount of award winnings per movie. This model assumes that there is a certain genre of movies that would consistently allow producers to maximise their revenues and awards received if they produce a movie of exactly this particular genre. After running several linear regressions, ANOVA and Tukey’s tests we conclude that the revenue-maximisation part of the model is not viable, as we fail to find any significant evidence that the revenue-maximising genre is the most popular one. However, we do find sufficient evidence to support our assumption that French directors indeed want to maximise number of award winnings per movie and, therefore, prefer to produce movies of a certain genre in order to increase their chances.
+We also try to establish some relationship between the number of awards a movie wins and the revenue that it generates and offer an explanation of why we only find weak relationship present.
+Furthermore, we briefly explore differences between movies produced purely by French producers and movies produced by French producers in collaboration with other countries.  Also, given some controversial results obtained from the revenue-maximisation part of the model, we offer a potential theory of why ‘Comedy’ genre is so popular. 
+
+
+
+
+```{r}
+
+load("/Users/macuser/Desktop/R_Project/film_level.RData")
+library(ggplot2)
+library(reshape2)
+```
+
+###2.1. Description of the Dataset
+
+The original dataset consists of 3,555 movies produced in or in collaboration with French producers between 1996 and 2010. Only movies that sold at least 1,000 tickets are included. Each movie has its own Internet Movie Database Identifier and title recorded for administrative use.
+
+The data for movies is recorded against 29 variables, from which 24 are dummies that are used to represent all the possible movie genres (or categories). One should note that any given film can be advertised in more than one genre. This is the list of all categories, which is indeed comprehensive: ‘Drama’, ‘Comedy’, ‘Crime’, ‘Romance’, ‘War’, ‘Adventure’, ‘Family’, ‘Fantasy’, ‘Musical’, ‘Documentary’, ‘Thriller’, ‘Mystery’, ‘History’, ‘Horror’, ‘Biography’, ‘Music’, ‘Animation’, ‘Sci-Fi’, ‘Sport’, ‘Action’, ‘Short’, ‘Adult’, ‘Western’ and ‘News’. Other five recorded variables are: a country of production, a year of production, number of tickets sold (labelled as 'revenue'), number of award winnings and an image aspect ratio used to film a movie.
+
+
+```{r}
+
+films<- film_level
+for (i in 5:30) {
+  films <- films[!is.na(films[,i]),]
+}
+
+
+```
+
+Excluding movies for which there is no data about revenue, genre or number of awards reduces the dataset to 2,955 observations.
+
+For the purposes of this research, one may safely approximate revenue collected for any given movie with the number of tickets sold for that movie.
+Furthermore, for the sake of convenience, we will assume that there is no difference between prices per ticket between different genres and that the price for one ticket for any movie is normalised to be equal to EUR 1. 
+
+
+###2.2. Strengths and Limitations of the Dataset
+
+This dataset has some important strengths that must be taken into account. First of all, this dataset is not just a sample, but the entire population of French movies produced between 1996 and 2010. In other words, conclusions from this information can be safely used within the French movie industry context. Secondly, the data comes from a reliable and highly specialised source, Internet Movie Database, which significantly reduces data collection errors. 
+However, the former also means that the research has extremely low external validity if applied to any movie market other than to the French one. Moreover, internal validity of this research is also low, as the amount of variables considered in this dataset is extremely limited and not sufficient to fully explain variation in the dependent variables of some of the models discussed below. 
+With these cautions in mind, this research aims to draw the most accurate conclusions given the available data.
+
+
+###3.1. French Movie Market: Overview
+
+Before diving into an in-depth analysis of which factors influence the distribution of movies across different genres, we first take a look at the evolution of number of tickets sold in the French movie market in order to see how the industry evolved over the years.
+
+
+```{r}
+
+
+options(scipen=999) 
+films_rev_100Kto1M <- films[(films$revenue< 1000000) & (films$revenue>100000),] 
+
+ggplot(data = films_rev_100Kto1M, aes(x = year, y =revenue)) + geom_point() +stat_smooth() + labs (x = 'Year', y = 'Tickets Sold', title = 'Industry Trend') 
+```
+
+Despite a minimum at 20,000 and a maximum at 20 million tickets sold, the graph displays a stagnant trend-line over the years. One could express a theory that the number of tickets sold has remained stagnant due to technological innovations and new forms of media consumption, which refrains people to go watch movies in cinemas. For example, one would prefer to download a movie on his or her computer and watch it at home rather than buy a ticket for a movie theater.
+
+At this point, one should explore the remaining variables in more depth, particularly movies’ genres, in order to find out whether this assumption about the French movie market applies to all film categories as well as to get more insights about which movie category are the most popular, i.e. highest revenue generating and received the most awards.
+
+
+
+###3.2. French Movie Market: Genre
+
+This section investigates what the French movie market offers to its consumers in terms of genre diversity. It raises the important question of whether this market is driven by utility-maximising directors, who produce movies of some particular genres in order to maximise their expected revenue and number of awards won or whether it is rather driven by directors with a different decision rule that cannot be inferred from this dataset. 
+In theory, there might be several explanations of why one may observe a certain distribution of movies across different categories, besides the former assumption that movie directors are simply utility maximisers. For example, it may depend on some major socio-political events of the past decades: a recent major war might lead to a sudden increase of war-themed movies. Alternatively, there might simply be a greater proportion of directors born with some intrinsic characteristics like melancholia, which would explain the large amount of drama movies on the market. Given the scope of this research, only the initial assumption will be discussed.
+
+
+The following bar chart tells us about the five most popular genres during the 1996 - 2010 period, namely ‘Drama’, ‘Comedy’, ‘Romance’, ‘Documentary’ and ‘Thriller’ with respectively 1,760, 958, 462, 363 and 309 observations. Once again, one has to take into account that if a movie is advertised as, for example, both comedy and drama, it will be accounted for to both genres.
+
+
+
+```{r}
+
+
+cats<- data.frame(matrix(ncol = 6)) 
+colnames(cats)<-colnames(films[1:6])
+names(cats)[names(cats)=="Drama"] <- "category"
+for (i in 1:nrow(films)) { 
+  for (j in 6:29) {   
+    if (films[i,colnames(films)[j]] == 1) { 
+      cats[nrow(cats)+1,1:5]<- films[i,1:5] 
+      cats$category[nrow(cats)]<- colnames(films)[j] 
+    }
+  }
+}
+cats<-cats[-1,] 
+
+ggplot(data = cats) + geom_bar(aes(x = category, fill = category)) + labs (x = "Category" , y = "Number of films" , title = "Number of films for each category") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+Now as the most popular categories have been identified, the further research will focus on them.
+
+
+At this point, it is important to understand what the new dataset is, as it will be extensively used in this research.
+
+
+```{r}
+
+for (i in 1:nrow(cats)) {
+  if ((cats[i,"category"]!= "Drama") & (cats[i,"category"]!= "Comedy") & (cats[i,"category"]!= "Romance") & (cats[i,"category"]!= "Documentary") & (cats[i,"category"]!= "Thriller"))
+  cats[i,"category"]<- "Other"
+}
+
+
+cats2<-subset(cats, !((duplicated(cats[,"Title"]) & cats[,"category"] == "Other") ))
+
+```
+
+Firstly, it aggregates all the non-popular categories into a single one called ‘Other’. Secondly, if a movie is advertised as, for example, both comedy, drama and any ‘Other’ category, then it will be listed two times: as a comedy and as a drama, ignoring the fact that it also features in the ‘Other’ movie category. Since one cannot assume that the drama aspect is more important than the comedy aspect (or vice-versa), we double-count for popular genres. At the same time one may neglect the ‘Other’ category aspect, given that this research is based on the assumption that any revenue or awards effects comes from being featured in the 'popular' genres. Due to its scope, note that this research will not differentiate for different genres within the ‘Other’ category. Hence, a movie which is, for example, ‘Adult’ and ‘Short’ will be listed only once with a tag ‘Other’.
+
+To briefly summarise the above, this research focuses on the top five movie categories as well as their differences from the ‘Other’ movie category. Hence, it is assumed that a movie is either:
+a)	a mix of N top genres with X ‘Other’ genres (it will be listed N times in the corresponding top five categories, with 1<=N<=5, but it will not appear in the ‘Other’ category);
+b)	a mix of X ‘Other’ genres (it will be listed only once, in the ‘Other’ category).
+
+
+###3.3. French Movie Market: Genre - Revenue
+
+From the following bar graph, one may observe that movies including the ‘Comedy’ genre as one of their features have the highest average revenue – EUR 579,200, while those that include ‘Documentary’ have the lowest average revenue of only EUR 69,627.
+
+
+```{r}
+
+avgRevCat<- data.frame(matrix(ncol = 2, nrow = 6))
+colnames(avgRevCat)<- c("Category",c("AvgRev"))
+k=1
+for (i in c("Drama","Comedy","Romance","Documentary","Thriller","Other")) {
+  avgRevCat[k,1]<- i 
+  avgRevCat[k,2]<-mean(cats2[cats2[,"category"]== i , "revenue"])
+  k = k+1
+}
+
+
+ggplot(data = avgRevCat) + geom_bar(aes(y = AvgRev, x= Category, fill = Category),  stat = "identity")+ labs (x = "Category" , y = "Average Revenue" , title = "Average Revenue of 'Popular' Categories")
+
+
+```
+
+
+Two additional important observations can be made. Firstly, ‘Drama’ genre, which had the highest observation count, has the second lowest revenue. This partially violates the utility-maximisation assumption: it seems like film directors do not choose to maximise revenue, as dramas have low average revenue. Secondly, ‘Other’ category has the second highest average revenue, but also lower individual counts per each genre within it than the top five genres, further supporting the case of the potential violation.
+
+We further explore the relationship between revenue and genre with the following boxplot. It shows the distribution of movie revenues within each of the six categories. It is worth mentioning that there is some noticeable difference between variances of revenues for different categories.  With this caveat in mind, one should continue investigating further.
+
+
+
+```{r}
+
+
+ggplot(cats2) + geom_boxplot(aes(y = revenue, x= category, fill = category)) + coord_cartesian(ylim=c(0, 1800000))+ labs (x = "Category" , y = "Revenue" , title = "Revenue Distribution of 'Popular' Categories")
+
+documentaries<-subset(cats2, cats2[,"category"]== "Documentary")
+ggplot(data = documentaries) + geom_boxplot(aes(y = revenue, x= category, fill = category)) + coord_cartesian(ylim=c(0, 120000)) + labs (x = "Documentary" , y = "Revenue" , title = "Revenue Distribution of Documentaries")
+
+
+```
+
+
+One may now test the underlying assumption of the “revenue-maximising directors” concept: whether producing a movie, which is advertised to be of one of the top five genres actually increases revenue. In order to do this, one has to run a regression with ‘revenue’ as a dependent variable and dummies for the top five categories and ‘Other’ as independent ones.
+
+
+
+```{r}
+
+films$Other <- ifelse(films$Comedy==0 & films$Drama==0 & films$Thriller==0 & films$Documentary==0 & films$Romance==0,1,0) 
+
+summary(lm(data=films, revenue ~ Documentary + Comedy + Drama + Romance + Thriller + Other)) # linear regression
+
+
+```
+
+From the regression it appears that only three out of five dummy variables representing the most popular categories are statistically significant. The signs on the coefficients are in line with the visual analysis conclusion from the bar graph above. Filming a movie listed as a ‘Comedy’ increases revenue by EUR 227,576, while producing ‘Documentary’ or ‘Drama’ has significant negative impact of EUR (-372,060) and EUR (-280,863) respectively on the revenue stream.
+
+Given the bar chart with observations per genre and such significant regression output, it is tempting to conclude that the selection rule used by directors does not depend on revenue maximising principle. As although there are a lot of comedies produced and ‘Comedy’ genre is revenue maximising, which itself supports the maximisation, this concept fails to explain why there are so many dramas and documentaries produced.
+
+
+Furthermore, given the previously observed problem with the high differences between variances of revenues for different genres, one may want to run ANOVA and Tukey’s Test to see whether the linear regression conclusion is correct.
+
+
+
+```{r}
+
+cats2$category <- factor(cats2$category,levels = c("Other","Comedy","Documentary","Drama","Romance","Thriller"))
+
+fit.r<-lm(data=cats2, revenue ~ category) 
+anova(fit.r)
+
+TukeyHSD(aov(fit.r), conf.level= 0.95)
+
+```
+
+
+The ANOVA results indicate that there is a significant difference between means of revenues in the top five movie genres and the “Others” category. By conducting Tukey’s test, one may observe that while movies from ‘Drama’ or ‘Documentary’ categories indeed yield lower revenue, the significant positive coefficient on ‘Comedy’ genre from the linear regression may be disregarded now, as there is no significant difference between revenues of ‘Comedy’ category or ‘Other’ category movies. 
+
+This provides some strong evidence against the revenue-maximising assumption from the utility maximisation model.
+
+
+###3.4. French Movie Market: Genre - Awards
+
+Although there is no evidence to conclude that directors are revenue maximisers, one may not rule out the whole model of utility maximisation yet. Indeed, it is still very plausible that directors aim to maximise the amount of award winnings and it is recognition that matters for them.
+
+
+```{r}
+
+awds<- data.frame(matrix(ncol = 7)) 
+colnames(awds)<-c("ImdbId","Title","country_prod","year","revenue","category","awardWin")
+for (i in 1:nrow(films)) { 
+  for (j in 6:29) {   
+    if (films[i,colnames(films)[j]] == 1) { 
+      awds[nrow(awds)+1,1:5]<- films[i,1:5] 
+      awds$category[nrow(awds)]<- colnames(films)[j] 
+      awds$awardWin[nrow(awds)]<- films[i,30]
+    }
+  }
+}
+awds<-awds[-1,]
+
+
+for (i in 1:nrow(cats)) {
+  if ((awds[i,"category"]!= "Drama") & (awds[i,"category"]!= "Comedy") & (awds[i,"category"]!= "Romance") & (awds[i,"category"]!= "Documentary") & (awds[i,"category"]!= "Thriller"))
+    awds[i,"category"]<- "Other"
+}
+awds2<-subset(awds, !((duplicated(awds[,"Title"]) & awds[,"category"] == "Other") ))
+
+
+avgWinCat<- data.frame(matrix(ncol = 2, nrow = 6))
+colnames(avgWinCat)<- c("Category",c("AvgWin"))
+k=1
+for (i in c("Drama","Comedy","Romance","Documentary","Thriller","Other")) {
+  avgWinCat[k,1]<- i 
+  avgWinCat[k,2]<-round(mean(awds2[awds2[,"category"]== i , "awardWin"]),0)
+  k = k+1
+}
+
+
+ggplot(data = avgWinCat) + geom_bar(aes(y = AvgWin, x= Category, fill = Category),  stat = "identity") + labs(x = "Category", y = "Average award winnings " , title = "Average Award Winnings per Category") 
+
+```
+
+Average amount of award winnings per category ranges between 1 and 3, meaning that French movie directors can win at least one award irrespectively of which genre they prefer to produce. Movies from ‘Drama’ and ‘Romance’ categories, on average, win the highest amount of awards – 3 per movie, while ‘Documentary’ and ‘Other’ categories win only 1 award per movie.
+
+
+
+```{r}
+
+
+ggplot(awds2) + geom_boxplot(aes(y = awardWin, x= category, fill = category)) + labs(x = "Category", y = "Number of awards " , title = "Award Winnings Distribution per Category") 
+
+ggplot(awds2) + geom_boxplot(aes(y = awardWin, x= category, fill = category)) + coord_cartesian(ylim=c(0, 5)) + labs(x = "Category", y = "Number of awards " , title = "Award Winnings Distribution per Category")
+
+
+```
+
+From this box plot one may observe that ‘Drama’ genre movies have the highest amount of top-scoring anomalies, meaning that movies from this category sometimes win awards well above their usual performance. Moreover, it is ‘Cidade De Deus’ drama movie that received 120 awards, the highest amount in this whole population. 
+So far, it seems like producing a ‘Drama’ category movie should maximise the number of winning awards. This might also be a potential explanation of why ‘Drama’ is the most popular genre in the 1996 – 2010 period, which supports the model of award-maximising directors.
+
+```{r}
+
+summary(lm(data=films, awardWin ~ Documentary + Comedy + Drama + Romance + Thriller + Other)) 
+
+```
+
+
+From the linear regression output, where number of awards is the dependent variable and dummies indicating movie genres are the regressors, one may observe that coefficients on ‘Drama’ and ‘Romance’ categories are positive and statistically significant. Thus, meaning that movies from the ‘Drama’ and ‘Romance’ categories win more awards.
+
+
+
+```{r}
+
+awds2$category <- factor(awds2$category,levels = c("Other","Comedy","Documentary","Drama","Romance","Thriller")) 
+
+fit.a<-lm(data=awds2, awardWin ~ category)
+anova(fit.a) 
+
+TukeyHSD(aov(lm(awardWin ~ category, data= awds2)), conf.level= 0.95) 
+
+```
+
+Indeed, ANOVA and Tukey’s Test results demonstrate that movies from ‘Drama’ or ‘Romance’ genres are statistically significantly more likely to win the higher amount of awards than all other categories considered in this research. Furthermore, apart from ‘Documentary’ genre movies, all other top movie categories are more likely to win higher amount of awards than ‘Other’ category movies, although this is not statistically significant.
+Overall, given such results, it may be concluded that the model of utility-maximising directors, where utility is derived from winning awards, is able to explain the distribution of movies produced between 1996 and 2010 across various genres. Essentially, movie directors aim to maximise the amount of awards per movie and that is why they tend to produce movies from the award-yielding categories. 
+
+
+###3.5. French Movie Market: Revenue - Awards
+
+We also investigate whether number of award winnings has any impact on revenue for a movie.
+Although one might expect the high number of awards to serve as an indicator of the movie quality, increasing the number of tickets sold for a given movie, the impact seems to be somehow limited. The following regression and correlation test supports this statement. 
+
+
+```{r}
+
+
+revaw <- lm(revenue ~ awardWin, data = films) 
+summary(revaw) 
+cor.test(films$awardWin, films$revenue)
+
+
+```
+
+
+For every award won, revenue increases by only EUR 15,709. The correlation further sustains this number: despite having a positive relationship, revenue and awards are only slightly correlated at 0.10. 
+
+One possible explanation for this result is that correlation between revenue collected and number of award winnings is lagged. In other words, the positive impact of an award winning on revenue collected occurs at a later point in time. Logically it is indeed a sensible assumption to make, as many award nominations like ‘Oscars’ take place after a movie has already been featured in cinemas. Hence, due to the fact that revenues considered in this research are approximated by cinema tickets sold and do not take into account, for example, revenues from digital copies sold, for which the ‘award’ effect is assumed to be significant, we fail to establish some strong relationship. 
+
+
+
+###3.6. French Movie Market: Genre by Country and Comedy Phenomena
+
+
+We briefly explore difference between movies produced by French producers only and movies produced by French producers in collaboration with other countries. However, what is more important, given the previous evidence of ‘Comedy’ genre movies generating higher revenues and despite of not finding this statistically significant, we further investigate potential reasons for such relationship in this section. 
+
+
+
+```{r}
+
+dfnew <- cats2
+for (i in 1:nrow(dfnew)) {
+  if (dfnew[i,"country_prod"] == "9") dfnew[i,"country"] <- "FR"
+  if (dfnew[i,"country_prod"] != "9") dfnew[i,"country"] <- "Co-Production"
+}
+
+ggplot(data = dfnew) + geom_bar(aes(x=category, y=revenue, fill=country),position = "dodge", stat = "identity") + labs(x="Category", y = "Revenue")
+
+```
+
+Based on our 5 selected film categories, we produced a bar plot to reveal the highest revenue-generating genres for purely French movies and for Co-produced ones. Excluding the “Other” category, comedies are the best performing genre for both groups. While France generates more revenues for both Comedy and Thriller, Co-production consistently makes higher revenues than France across all remaining genres.
+
+
+```{r}
+
+years<-c("1996", "1997","1998","1999","2000", "2001", "2002", "2003", "2004", "2005", "2006", "2007", "2008", "2009","2010")
+cat<-c("Drama","Comedy","Romance","Thriller","Documentary")
+cat_years <-data.frame(matrix(ncol = 15))
+t=1
+for (i in years){
+  k=1
+  for (j in cat) {
+    cat_years[k,t]<-sum(films[films[,"year"]== i, j], na.rm = TRUE)
+    k=k+1
+  }
+  t=t+1
+}
+colnames(cat_years) <- c("1996", "1997","1998","1999","2000", "2001", "2002", "2003", "2004", "2005", "2006", "2007", "2008", "2009","2010")
+rownames(cat_years) <- c("Drama","Comedy","Romance","Thriller","Documentary")
+cat_years2 <- melt(data=cat_years)  
+cat_years2$category<- rownames(cat_years)
+ggplot(data = cat_years2) + geom_bar( aes(x = variable , y= value, fill = category ), stat = "identity") + scale_x_discrete(labels = c("1996" ="'96", "1997" ="'97", "1998" ="'98", "1999" ="'99", "2000" ="'00","2001" ="'01", "2002" ="'02", "2003" ="'03", "2004" ="'04", "2005" ="'05", "2006" ="'06", "2007" ="'07", "2008" ="'08", "2009" ="'09", "2010" ="'10") ) + labs( x = "Year", y = "Count", title = "Evolution of Genre over Years")
+
+```
+
+One may also observe that “Comedy” genre not only generates high revenues, but is also consistently well represented within the top five movie genres over the whole time period considered in this research. We investigate potential factors that are responsible for ‘Comedy’ genre movies being popular, or for what we call the ‘Comedy Phenomena’.  
+
+We would like to propose the following theory. One may observe that the well-known stand-up comedians, such as Eric and Ramzy or Gad Elmaleh, pursue a career in cinema upon their immense success on stage. This must be attracting their already large ‘fan bases’ to watch movies in which their favorite comedians perform. “La Tour Montparnasse infernale” (2001) and “Chouchou” (2007), respectively, are great illustrations of the way this phenomenon has taken place over the years. Although French ‘Comedy’ genre movies generate higher revenues than the Co-production ones, the latter do produce significant revenues as well.
+This ‘Comedy Phenomena’ among Co-production movies can be explained by the examples from this dataset. Indeed, the French and Belgian co-production “OSS 117 le Caire nid d’espions” with Jean Dujardin (2006) was a huge success, as revealed by its 2 million in revenue. Furthermore, a more recent “OSS 117” movie, not included in this dataset, was also an immense success upon its release in 2012, topping 7-digit revenue. 
+
+Given the limitations of our research and dataset, we cannot test the theory expressed in above. However, we believe that it is a viable explanation for the ‘Comedy Phenomena’ and should indeed be investigated further.
+
+
+###4. Conclusion
+
+
+In this research, we were able to formulate and test the model of utility-maximising directors. We found that there is some evidence to assume that French directors indeed aim to maximise number of award winnings per movie. However, given the limitations of this research explained in the dataset section, it would be wrong to conclude that the model considered here is statistically powerful and that there is some strong causality. Nevertheless, one may indeed conclude that it is a very plausible model, which should be investigated in more depth with more variables in order to be able to determine strong causality and conclude that movie directors’ motivations drive the distribution of movies across different categories on the French movie market.
+We also offered a potential explanation of why we could not establish strong relationship between revenue generated by a movie and number of awards it won. We recommend to test it further and run a regression, which would include revenues generated from all the sources (e.g. include revenue from digital copies sold) and would also take the delay factor into account. 
+‘Comedy Phenomena’ is yet another interesting hypothesis that we would like to recommended for future analysis, given that the scope of this research and data limitations do not allow us to investigate it ourselves.  
